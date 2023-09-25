@@ -1,0 +1,82 @@
+{
+  "project_info": {
+    "project_number": "688147771131",
+    "project_id": "withend-test",
+    "storage_bucket": "withend-test.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:688147771131:android:48d46bec7276d7792e8a5e",
+        "android_client_info": {
+          "package_name": "com.example.withend"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "688147771131-13rtv6gfe0d5vh26u8ip497viq7r1iqp.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBSamvg6145sZcJSvSfeRSfQdL1mtNCu1A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "688147771131-13rtv6gfe0d5vh26u8ip497viq7r1iqp.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "688147771131-f0lcirjt0kklpqu311alnr0hb7gff2p6.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.toonflix"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:688147771131:android:1ec62afb20c6d5cd2e8a5e",
+        "android_client_info": {
+          "package_name": "com.example.withend_test"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "688147771131-13rtv6gfe0d5vh26u8ip497viq7r1iqp.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBSamvg6145sZcJSvSfeRSfQdL1mtNCu1A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "688147771131-13rtv6gfe0d5vh26u8ip497viq7r1iqp.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "688147771131-f0lcirjt0kklpqu311alnr0hb7gff2p6.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.toonflix"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
