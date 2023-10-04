@@ -29,7 +29,7 @@ class ChatMessages extends StatelessWidget {
 
         if (!chatSnapshots.hasData || chatSnapshots.data!.docs.isEmpty) {
           return const Center(
-            child: Text('No messages found'),
+            child: Text('대화를 시작해보세요!'),
           );
         }
         if (chatSnapshots.hasError) {

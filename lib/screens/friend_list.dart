@@ -26,6 +26,7 @@ class _FriendListState extends State<FriendList> {
   late Reference _ref; //유저 사진 받아올 reference
   late Reference _friendRef; //친구 사진 url 받아올 reference
   late String userUrl = ''; //유저 사진 url
+  bool _loading = true;
 
   @override
   void initState() {
@@ -37,6 +38,9 @@ class _FriendListState extends State<FriendList> {
   }
 
   Future<void> getUserInfo() async {
+    setState(() {
+      _loading = true;
+    });
     String uid = FirebaseAuth.instance.currentUser!.uid;
     var result = await db.collection('users').doc(uid).get();
     String url = await _ref.getDownloadURL();
@@ -55,13 +59,22 @@ class _FriendListState extends State<FriendList> {
         selfIntro = '';
       });
     }
+    setState(() {
+      _loading = false;
+    });
   }
 
   Future<void> loadFriendInfo() async {
+    setState(() {
+      _loading = true;
+    });
     for (int i = 0; i < friendList.length; i++) {
       var id = friendList[i];
       await getFriendInfo(id);
     }
+    setState(() {
+      _loading = false;
+    });
   }
 
   Future<void> getFriendInfo(String id) async {
@@ -86,69 +99,71 @@ class _FriendListState extends State<FriendList> {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(25),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(30),
-              color: const Color.fromARGB(255, 240, 240, 240),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              //mainAxisSize: MainAxisSize.max,
-              children: [
-                CircleAvatar(
-                  backgroundImage: NetworkImage(userUrl),
-                  radius: 35,
-                ),
-                //const SizedBox(width: 2),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      userName,
-                      style: const TextStyle(
-                          color: Color.fromRGBO(53, 231, 189, 1),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20),
-                      textAlign: TextAlign.left,
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      selfIntro,
-                      style: const TextStyle(
-                        color: Colors.black,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 10),
-                //수정하기
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ProfileScreen(),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color.fromRGBO(53, 231, 189, 1),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 10, horizontal: 10),
+          if (friendList.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.all(25),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                color: const Color.fromARGB(255, 240, 240, 240),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                //mainAxisSize: MainAxisSize.max,
+                children: [
+                  CircleAvatar(
+                    backgroundImage: NetworkImage(userUrl),
+                    radius: 35,
                   ),
-                  child: const Text(
-                    '수정하기',
-                    style: TextStyle(color: Colors.white),
+                  //const SizedBox(width: 2),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        userName,
+                        style: const TextStyle(
+                            color: Color.fromRGBO(53, 231, 189, 1),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20),
+                        textAlign: TextAlign.left,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        selfIntro,
+                        style: const TextStyle(
+                          color: Colors.black,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(width: 10),
+                  //수정하기
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ProfileScreen(),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color.fromRGBO(53, 231, 189, 1),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 10, horizontal: 10),
+                    ),
+                    child: const Text(
+                      '수정하기',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+
           const SizedBox(height: 20),
           const Row(
             mainAxisAlignment: MainAxisAlignment.start,
@@ -165,32 +180,35 @@ class _FriendListState extends State<FriendList> {
           ),
           Divider(color: Colors.grey.shade200, thickness: 1.0), //구분선
           if (friendList.isNotEmpty) //friednList 비어있는지
-            Expanded(
-              child: ListView.builder(
-                itemCount: friendList.length,
-                itemBuilder: (context, int index) {
-                  return ListTile(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              FriendProfileScreen(friendList[index]),
-                        ),
-                      );
-                    },
-                    leading: CircleAvatar(
-                      radius: 30,
-                      backgroundImage: NetworkImage(friendImage[index]),
+            _loading
+                ? const Center(
+                    child: CircularProgressIndicator(),
+                  )
+                : Expanded(
+                    child: ListView.builder(
+                      itemCount: friendList.length,
+                      itemBuilder: (context, int index) {
+                        return ListTile(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    FriendProfileScreen(friendList[index]),
+                              ),
+                            );
+                          },
+                          leading: CircleAvatar(
+                            radius: 30,
+                            backgroundImage: NetworkImage(friendImage[index]),
+                          ),
+                          title: Text(friendName[index]),
+                          subtitle: Text(friendIntro[index]),
+                        );
+                      },
+                      scrollDirection: Axis.vertical,
                     ),
-                    title: Text(friendName[index]),
-                    subtitle: Text(friendIntro[index]),
-                  );
-                },
-                scrollDirection: Axis.vertical,
-              ),
-            ),
-
+                  ),
           const SizedBox(
             height: 150,
           ),
