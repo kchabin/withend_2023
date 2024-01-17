@@ -17,7 +17,7 @@ class _FriendListState extends State<FriendList> {
   final db = FirebaseFirestore.instance;
   late String userName = ''; //유저이름
   late String selfIntro = ''; //유저 한줄소개
-  List<dynamic> friendList = []; //유저 친구리스트
+  List<dynamic> friendList = ["4s5FR2vQBMet6RhgDRxxkEZMGpm1"]; //유저 친구리스트
   List<String> friendName = []; //친구 이름 리스트
   List<String> friendIntro = []; //친구 한줄소개 리스트
   late String friendUrl = ''; //친구 사진 url input
@@ -109,6 +109,7 @@ class _FriendListState extends State<FriendList> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 //mainAxisSize: MainAxisSize.max,
+
                 children: [
                   CircleAvatar(
                     backgroundImage: NetworkImage(userUrl),

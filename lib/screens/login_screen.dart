@@ -5,8 +5,10 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:withend/screens/matching_screen.dart';
 import 'package:withend/widgets/user_image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:math';
 //import 'package:withend/main.dart';
 
 final _firebase = FirebaseAuth.instance;
@@ -26,11 +28,12 @@ class _LoginPageState extends State<LoginPage> {
   var enteredPassword = '';
   var enteredName = '';
   var enteredIntro = '';
-  var friendList = <String>[];
+  var friendList = <String>['4s5FR2vQBMet6RhgDRxxkEZMGpm1'];
   var _isLogin = true;
   var matchList = <String>[]; //매칭된 사람 리스트
   var requestList = <String>[]; //친구 요청 온 리스트
   var profile = <dynamic>[]; //사용자의 48차원 벡터
+  var sendRequestList = <dynamic>[]; // 친구요청 보낸 친구 리스트
   File? _selectedImage;
   bool _isAuthenticating = false; //로딩 중 표시
 
@@ -62,21 +65,35 @@ class _LoginPageState extends State<LoginPage> {
         await storageRef.putFile(_selectedImage!);
         final imageUrl = await storageRef.getDownloadURL();
 
+        //성향 벡터 초기화 해주기
+        // 15개의 0 값을 가진 리스트 생성
+        List<double> zeros = List.generate(15, (index) => 0);
+
+        // -0.5에서 0.5 사이의 소수값으로 채워진 33개의 요소를 가진 리스트 생성
+        List<double> randoms =
+            List.generate(33, (index) => Random().nextDouble() - 0.5);
+
+        // 두 리스트를 합침
+        profile = zeros + randoms;
+
         await FirebaseFirestore.instance //파이어스토어 접근
             .collection('users')
             .doc(userCredentials.user!.uid)
             .set({
           'username': enteredName,
           'email': enteredEmail,
-          'image_url': imageUrl,
+          'image_url': imageUrl, //사진 업로드 -> 스토리지 -> 파이어스토어
           'self_intro': enteredIntro,
           'friend_list': friendList,
           'match_list': matchList,
           'request_list': requestList,
-          'profile': profile, //사진 업로드 -> 스토리지 -> 파이어스토어
+          'profile': profile, //사용자 성향벡터 저장
+          'userId': userCredentials.user!.uid,
+          'send_request': sendRequestList,
           //프로필 사진 업데이트 되는지는 아직 모름. => 23.08.08 .01:15
         });
       }
+      Navigator.pop(context);
     } on FirebaseAuthException catch (error) {
       if (error.code == 'email-already-in-use') {
         //...
@@ -331,7 +348,7 @@ class _LoginPageState extends State<LoginPage> {
                           const CircularProgressIndicator(),
                         if (!_isAuthenticating)
                           ElevatedButton(
-                            onPressed: _submit,
+                            onPressed: () => {_submit()},
                             style: ElevatedButton.styleFrom(
                               backgroundColor:
                                   const Color.fromRGBO(53, 231, 189, 1),

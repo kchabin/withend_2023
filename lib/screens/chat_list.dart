@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:withend/screens/chat_screen.dart';
+import 'package:withend/screens/chatbot_screen.dart';
 
 class ChatList extends StatefulWidget {
   const ChatList({super.key});
@@ -21,6 +22,7 @@ class _ChatListState extends State<ChatList> {
   late Reference _friendRef; //친구 사진 url 가져올 reference
   late String friendUrl = '';
   List<String> friendImage = []; //친구 이미지 url 목록
+  late Widget selectedScreen; //채팅방을 어디로 할 지 결정
 
   Future<void> getUserInfo() async {
     var result = await db.collection('users').doc(userUid).get();
@@ -70,7 +72,7 @@ class _ChatListState extends State<ChatList> {
 
   @override
   Widget build(BuildContext context) {
-    Widget chatListView = Container(); // 기본적으로 빈r 컨테이너
+    Widget chatListView = Container(); // 기본적으로 빈 컨테이너
 
     if (friendName.isNotEmpty) {
       chatListView = ListView.builder(
@@ -84,10 +86,15 @@ class _ChatListState extends State<ChatList> {
               subtitle: const Text('메시지 내용'),
               onTap: () {
                 String data = friendList[index];
+                if (data == "4s5FR2vQBMet6RhgDRxxkEZMGpm1") {
+                  selectedScreen = ChatbotScreen(data);
+                } else {
+                  selectedScreen = ChatScreen(data);
+                }
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ChatScreen(data),
+                    builder: (context) => selectedScreen,
                   ),
                 );
               });

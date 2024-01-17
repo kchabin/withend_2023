@@ -63,7 +63,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '688147771131',
     projectId: 'withend-test',
     storageBucket: 'withend-test.appspot.com',
-    iosClientId: '688147771131-s2ev0jkfm35vauiolq8i4c58den6ks28.apps.googleusercontent.com',
+    iosClientId:
+        '688147771131-s2ev0jkfm35vauiolq8i4c58den6ks28.apps.googleusercontent.com',
     iosBundleId: 'com.example.withendTest',
   );
 }

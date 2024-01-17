@@ -8,6 +8,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:math';
 
 class MatchingScreen extends StatefulWidget {
   const MatchingScreen({super.key});
@@ -18,25 +19,35 @@ class MatchingScreen extends StatefulWidget {
 
 //변수 모음
 final db = FirebaseFirestore.instance;
-late String userName = ''; //유저이름
-late String selfIntro = ''; //유저 한줄소개
-late String userUid = ''; //current user uid
+String userName = ''; //유저이름
+String selfIntro = ''; //유저 한줄소개
+String userUid = ''; //current user uid
 late Reference _ref; //유저 사진 받아올 reference
-late String userUrl = ''; //유저 사진 url
+String userUrl = ''; //유저 사진 url
+List<dynamic> friendList = []; //유저 친구 리스트 불러오기
 
 List<dynamic> matchList = []; //매칭된 유저id 리스트
 List<dynamic> matchName = []; //매칭된 유저 이름리스트
 late Reference _matchRef; //매칭된 유저 사진 url받아올 reference
-late String matchUrl = ''; //매칭된 유저 사진 url
+String matchUrl = ''; //매칭된 유저 사진 url
 List<dynamic> matchIntro = []; //매칭된 유저 한줄소개 리스트
 List<dynamic> matchImage = []; //요청 사진 url 목록
+List<dynamic> sendRequestList = []; // 요청한 사람 목록
 
 List<dynamic> requestList = []; //친구요청 중인 유저의 리스트
 List<dynamic> requestName = []; //요청 이름 리스트
 List<dynamic> requestIntro = []; //요청 한줄소개 리스트
-late String requestUrl = ''; //요청 사진 url input
+String requestUrl = ''; //요청 사진 url input
 List<dynamic> requestImage = []; //요청 사진 url 목록
 late Reference _requestRef; //요청 사진 url 받아올 reference
+
+late QuerySnapshot usersSnapshot;
+List<dynamic> allUserList = []; //모든 user의 uid를 담아줄 리스트
+
+Map<String, List> userprofile = {}; //친구추천 모델 api에 넣을 json 생성
+
+bool _isMatchLoading = true; //매칭 창이 로딩 중인지
+bool _isrequestLoading = true; // request창이 로딩 중인지
 
 //json에 들어갈 데이터를 만들기 위한 변수
 var matchJson = {};
@@ -53,6 +64,7 @@ class _MatchingScreenState extends State<MatchingScreen> {
     loadMatchInfo();
     loadRequestInfo();
     loadProfile();
+    _loadAllUser();
   }
 
   Future<void> getUserInfo() async {
@@ -64,8 +76,9 @@ class _MatchingScreenState extends State<MatchingScreen> {
         userName = data['username'];
         matchList = data['match_list'];
         requestList = data['request_list'];
+        friendList = data['friend_list'];
+        sendRequestList = data['send_request'];
       });
-      print(requestList);
       // await loadMatchInfo();
       // await loadRequestInfo();
     } else {
@@ -77,10 +90,16 @@ class _MatchingScreenState extends State<MatchingScreen> {
   }
 
   Future<void> loadRequestInfo() async {
+    setState(() {
+      _isrequestLoading = true;
+    });
     for (int i = 0; i < requestList.length; i++) {
       var id = requestList[i];
       await getRequestInfo(id);
     }
+    setState(() {
+      _isrequestLoading = false;
+    });
   }
 
   Future<void> getRequestInfo(String id) async {
@@ -101,10 +120,16 @@ class _MatchingScreenState extends State<MatchingScreen> {
   }
 
   Future<void> loadMatchInfo() async {
+    setState(() {
+      _isMatchLoading = true;
+    });
     for (int i = 0; i < matchList.length; i++) {
       var id = matchList[i];
       await getMatchInfo(id);
     }
+    setState(() {
+      _isMatchLoading = false;
+    });
   }
 
   Future<void> getMatchInfo(String id) async {
@@ -134,289 +159,174 @@ class _MatchingScreenState extends State<MatchingScreen> {
     }
   }
 
-  Future<void> _callRecommendAPI() async {
+  //매칭하기 버튼을 눌렀을 때 실행되는 함수
+  Future<void> _pressButton() async {
+    await _renewProfile(); //성향벡터 갱신
+    await _recommendFriend(); //친구 추천
+    getUserInfo();
+    loadMatchInfo();
+    loadRequestInfo();
+  }
+
+  //성향벡터 갱신
+  Future<void> _renewProfile() async {
+    var it = friendList.iterator;
+    while (it.moveNext()) {
+      //친구 리스트를 순회하면서 각 채팅방에 있는 대화를 추출한다.
+      String friendId = it.current;
+      String chatroomId = createChatroomId(userUid, friendId);
+
+      // 유저 채팅을 검색
+      final uidQuery =
+          db.collection(chatroomId).where("userId", isEqualTo: userUid);
+      QuerySnapshot userSnapshot = await uidQuery.get();
+      List<dynamic> userChatList =
+          userSnapshot.docs.map((doc) => doc['text']).toList();
+      //유저 성향벡터 가져오기
+      var userdata = await db.collection('users').doc(userUid).get();
+      var userprofile = userdata['profile'];
+
+      // 친구 채팅을 검색
+      final friendQuery =
+          db.collection(chatroomId).where("userId", isEqualTo: friendId);
+      QuerySnapshot friendSnapshot = await friendQuery.get();
+      List<dynamic> friendChatList =
+          friendSnapshot.docs.map((doc) => doc['text']).toList();
+      // 친구 성향벡터 가져오기
+      var frienddata = await db.collection('users').doc(userUid).get();
+      var friendprofile = frienddata['profile'];
+
+      //json 파일 생성
+      Map<String, List> profile = {
+        userUid: userprofile,
+        friendId: friendprofile
+      };
+      Map<String, List> text = {
+        userUid: userChatList,
+        friendId: friendChatList
+      };
+
+      Map<String, Map> profilejson = {"profile": profile, 'text': text};
+
+      print('profilejson: $profilejson');
+      //성향벡터추출 ai모델 api에 json 파일 전달
+      var url = Uri.parse(
+        'https://c8c6-35-229-21-94.ngrok-free.app',
+      );
+      var response = await http.post(url,
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode(profilejson));
+
+      var data = json.decode(response.body);
+      print('matching_screen profile data: $data');
+
+      //body에서 profile의 userprofile과 friendprofile분리해주기
+      var new_userprofile = data["profile"][userUid];
+      var new_friendprofile = data["profile"][friendId];
+
+      //firebase에 업데이트
+      await db.collection('users').doc(uid).update({
+        'profile': new_userprofile,
+      });
+      await db.collection('users').doc(friendId).update({
+        'profile': new_friendprofile,
+      });
+    }
+
+    //유저 성향벡터 다시 불러와주기
+    getUserInfo();
+  }
+
+  String createChatroomId(String userId, String friendId) {
+    if (userId.compareTo(friendId) > 0) {
+      return (userId + friendId);
+    } else {
+      return (friendId + userId);
+    }
+  }
+
+  //친구 추천
+  Future<void> _recommendFriend() async {
+    await _loadAllUser();
+    await _exceptFriend();
+    await _RecommendJson();
+    await _callRecommendAPI(userprofile);
+    await getUserInfo();
+  }
+
+  //모든 유저의 uid를 불러오기
+  Future<void> _loadAllUser() async {
+    usersSnapshot = await db.collection('users').get();
+    allUserList = profileSnapshot.docs.map((doc) => doc['userId']).toList();
+    print(allUserList);
+  }
+
+  //유저의 친구들은 리스트에서 삭제시켜준다. 챗봇도 삭제해줄 것.
+  Future<void> _exceptFriend() async {
+    allUserList.remove('4s5FR2vQBMet6RhgDRxxkEZMGpm1');
+    allUserList.remove('c5mHHofLi5YwOwuQA6TJ0MdCrSS2'); // 챗봇 삭제
+    for (int i = 0; i < friendList.length; i++) {
+      allUserList.remove(friendList[i]);
+    }
+    for (int i = 0; i < matchList.length; i++) {
+      // 매칭리스트에 있는 사람 삭제
+      allUserList.remove(matchList[i]);
+    }
+    if (requestList.isNotEmpty) {
+      for (int i = 0; i < sendRequestList.length; i++) {
+        //이미 요청 보낸 사람 삭제
+        allUserList.remove(matchList[i]);
+      }
+    }
+    for (int i = 0; i < requestList.length; i++) {
+      //요청 온 사람 삭제
+      allUserList.remove(requestList[i]);
+    }
+    print("유저 삭제한 후: $allUserList");
+  }
+
+  //유저의 uid에 따른 성향벡터를 모두 불러온다. api에 넣을 map 자료 만들기
+  Future<void> _RecommendJson() async {
+    var it = allUserList.iterator;
+
+    while (it.moveNext()) {
+      var data = await db.collection('users').doc(it.current).get();
+      userprofile[it.current] = data['profile'];
+    }
+    print('recommendjson: $userprofile');
+    print({
+      "target_id": userUid,
+      "profile": userprofile,
+    });
+  }
+
+  //추천 친구 받기
+  Future<void> _callRecommendAPI(Map<String, List> userprofile) async {
+    //친구추천 api
     var url = Uri.parse(
       'http://10.0.2.2:5000',
     );
-    var response = await http.get(url);
-    // print('Response status: ${response.statusCode}');
-    // print('Response body: ${response.body}');
-
-    url = Uri.parse('http://10.0.2.2:5000');
-    response = await http.post(url,
+    var response = await http.post(url,
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           "target_id": userUid,
-          "profile": {
-            "Ayw2wcuID3QOJrUB2teGVXFEz0g2": [
-              0.34,
-              0.89,
-              0.52,
-              0.11,
-              0.96,
-              0.47,
-              0.82,
-              0.66,
-              0.44,
-              0.29,
-              0.65,
-              0.99,
-              0.49,
-              0.78,
-              0.68,
-              0.39,
-              0.70,
-              0.57,
-              0.22,
-              0.87,
-              0.35,
-              0.26,
-              0.61,
-              0.14,
-              0.73,
-              0.92,
-              0.04,
-              0.31,
-              0.58,
-              0.17,
-              0.88,
-              0.74,
-              0.15,
-              0.90,
-              0.27,
-              0.50,
-              0.83,
-              0.06,
-              0.59,
-              0.81,
-              0.72,
-              0.55,
-              0.13,
-              0.94,
-              0.76,
-              0.07,
-              0.93,
-              0.41
-            ],
-            "goIqwojKWKbdAtt94ijtWSuxdY42": [
-              0.28,
-              0.63,
-              0.32,
-              0.45,
-              0.19,
-              0.37,
-              0.12,
-              0.86,
-              0.05,
-              0.67,
-              0.85,
-              0.43,
-              0.60,
-              0.64,
-              0.21,
-              0.02,
-              0.71,
-              0.97,
-              0.80,
-              0.20,
-              0.42,
-              0.54,
-              0.01,
-              0.77,
-              0.53,
-              0.03,
-              0.95,
-              0.84,
-              0.10,
-              0.25,
-              0.98,
-              0.91,
-              0.69,
-              0.24,
-              0.79,
-              0.18,
-              0.33,
-              0.51,
-              0.36,
-              0.56,
-              0.46,
-              0.75,
-              0.09,
-              0.38,
-              0.16,
-              0.23,
-              0.62,
-              0.40
-            ],
-            "jdy47UGlf9OWzWKwP79qZWGSaed2": [
-              0.30,
-              0.08,
-              0.34,
-              0.48,
-              0.57,
-              0.13,
-              0.27,
-              0.15,
-              0.52,
-              0.65,
-              0.93,
-              0.60,
-              0.29,
-              0.46,
-              0.36,
-              0.17,
-              0.55,
-              0.78,
-              0.32,
-              0.47,
-              0.58,
-              0.28,
-              0.41,
-              0.21,
-              0.44,
-              0.31,
-              0.37,
-              0.63,
-              0.25,
-              0.70,
-              0.56,
-              0.54,
-              0.19,
-              0.53,
-              0.14,
-              0.64,
-              0.79,
-              0.20,
-              0.73,
-              0.50,
-              0.24,
-              0.12,
-              0.69,
-              0.67,
-              0.35,
-              0.10,
-              0.49,
-              0.42
-            ],
-            "k3gtdy8zR8dzDg4J1qPfcrVrxYz1": [
-              0.04,
-              0.18,
-              0.09,
-              0.39,
-              0.72,
-              0.33,
-              0.22,
-              0.76,
-              0.81,
-              0.38,
-              0.45,
-              0.66,
-              0.74,
-              0.59,
-              0.11,
-              0.03,
-              0.77,
-              0.43,
-              0.51,
-              0.68,
-              0.40,
-              0.23,
-              0.75,
-              0.61,
-              0.80,
-              0.16,
-              0.26,
-              0.71,
-              0.05,
-              0.06,
-              0.07,
-              0.08,
-              0.82,
-              0.62,
-              0.89,
-              0.87,
-              0.02,
-              0.01,
-              0.96,
-              0.92,
-              0.94,
-              0.84,
-              0.88,
-              0.86,
-              0.90,
-              0.85,
-              0.83,
-              0.95
-            ],
-            "xXfED21vBxdCiOIV3VoXh3lFxZZ2": [
-              0.99,
-              0.00,
-              0.91,
-              0.34,
-              0.35,
-              0.36,
-              0.31,
-              0.32,
-              0.33,
-              0.25,
-              0.26,
-              0.27,
-              0.21,
-              0.22,
-              0.23,
-              0.15,
-              0.16,
-              0.17,
-              0.10,
-              0.11,
-              0.12,
-              0.05,
-              0.06,
-              0.07,
-              0.98,
-              0.96,
-              0.97,
-              0.90,
-              0.88,
-              0.89,
-              0.80,
-              0.82,
-              0.83,
-              0.75,
-              0.76,
-              0.77,
-              0.69,
-              0.70,
-              0.71,
-              0.60,
-              0.62,
-              0.63,
-              0.55,
-              0.56,
-              0.57,
-              0.45,
-              0.46,
-              0.47
-            ],
-          }
+          "profile": userprofile,
         }));
 
     var data = json.decode(response.body);
-    matchList = data["recommended_users"];
-    print('api안에서 matchlist: $matchList');
+    print('matching_screedn data: $data');
+    var newmatchList = data["recommended_users"];
 
     await db.collection('users').doc(uid).update({
-      'match_list': matchList,
+      'match_list': newmatchList,
     });
 
-    getUserInfo();
-    print('추천리스트: $matchList');
+    await getUserInfo();
   }
 
   @override
   Widget build(BuildContext context) {
     final fontSize = MediaQuery.of(context).size.width * 0.07;
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: Padding(
@@ -459,7 +369,7 @@ class _MatchingScreenState extends State<MatchingScreen> {
               children: [
                 ElevatedButton(
                   onPressed: () async {
-                    await _callRecommendAPI();
+                    await _pressButton();
                     List<dynamic> data = matchList;
                     Navigator.push(
                       context,
@@ -502,12 +412,16 @@ class _MatchingScreenState extends State<MatchingScreen> {
             Divider(color: Colors.grey.shade200, thickness: 1.0),
             Expanded(
               child: matchList.isNotEmpty
-                  ? ListView.builder(
-                      itemCount: matchList.length,
-                      itemBuilder: (context, index) {
-                        return RequestList(index: index);
-                      },
-                    )
+                  ? _isMatchLoading
+                      ? const Center(
+                          child: CircularProgressIndicator(),
+                        )
+                      : ListView.builder(
+                          itemCount: matchList.length,
+                          itemBuilder: (context, index) {
+                            return RequestList(index: index);
+                          },
+                        )
                   : const Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -549,12 +463,16 @@ class _MatchingScreenState extends State<MatchingScreen> {
             Divider(color: Colors.grey.shade200, thickness: 1.0),
             Expanded(
               child: requestList.isNotEmpty
-                  ? ListView.builder(
-                      itemCount: requestList.length,
-                      itemBuilder: (context, index) {
-                        return AcceptList(index: index);
-                      },
-                    )
+                  ? _isrequestLoading
+                      ? const Center(
+                          child: CircularProgressIndicator(),
+                        )
+                      : ListView.builder(
+                          itemCount: requestList.length,
+                          itemBuilder: (context, index) {
+                            return AcceptList(index: index);
+                          },
+                        )
                   : const Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -585,49 +503,80 @@ class _MatchingScreenState extends State<MatchingScreen> {
 }
 
 //다른 사람한테 친구 요청하는 리스트
-class RequestList extends StatelessWidget {
+class RequestList extends StatefulWidget {
   final int index;
 
   const RequestList({Key? key, required this.index}) : super(key: key);
 
-  //친구요청 보내는 함수
+  @override
+  _RequestListState createState() => _RequestListState();
+}
+
+class _RequestListState extends State<RequestList> {
+  // 여기에 필요한 변수를 추가하세요.
+  // 예를 들면, matchList, matchImage, matchName, matchIntro 등이 있을 것입니다.
+
+  @override
+  void initState() {
+    super.initState();
+    // 필요한 초기화를 수행합니다.
+  }
+
+  // 친구요청 보내는 함수
   void sendFriendRequest(id) async {
-    matchList.remove(id);
+    // matchList는 이제 _RequestListState의 상태로 가져와야 합니다.
+    if (mounted) {
+      setState(() {
+        matchList.remove(id);
+        sendRequestList.add(id);
+      });
+    }
+    ;
 
     await db.collection('users').doc(userUid).update({
       'match_list': matchList,
     });
 
-    List<dynamic> requestFreind = [];
+    List<dynamic> requestFriend = [];
 
     var result = await db.collection('users').doc(id).get();
 
     var data = result.data() as Map<String, dynamic>;
-    requestFreind = data['request_list'];
+    requestFriend = data['request_list'];
 
-    requestFreind.add(userUid);
+    requestFriend.add(userUid);
 
-    //파이어베이스 업데이트할 때 리스트에 붙여넣는거 있는지 알아보기
     await db.collection('users').doc(id).update({
-      'request_list': requestFreind,
+      'request_list': requestFriend,
     });
+
+    // 필요하다면 여기에서 UI 업데이트를 위해 setState를 호출할 수 있습니다.
+    var res = await db.collection('users').doc(userUid).get();
+    if (res.exists) {
+      var data = res.data() as Map<String, dynamic>;
+      setState(() {
+        matchList = data['match_list'];
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    print(
-        'request에서 \n matchlist: $matchList \n matchname: $matchName \n matchintro: $matchIntro \n matchImage: $matchImage');
-
+    // 아래의 matchImage, matchName, matchIntro는 해당 데이터를 가져올 수 있는 방법을 구현해야 합니다.
     return ListTile(
       leading: CircleAvatar(
-        backgroundImage: NetworkImage(matchImage[index]),
+        backgroundImage: NetworkImage(matchImage[widget.index]),
         radius: 30,
       ),
-      title: Text(matchName[index]),
-      subtitle: Text(matchIntro[index]),
+      title: Text(matchName[widget.index]),
+      subtitle: Text(matchIntro[widget.index]),
       trailing: ElevatedButton(
         onPressed: () {
-          sendFriendRequest(matchList[index]);
+          sendFriendRequest(matchList[widget.index]);
+          setState(() {
+            sendRequestList.add(widget.index);
+            matchList.remove(widget.index);
+          });
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color.fromRGBO(53, 231, 189, 1),

@@ -20,6 +20,8 @@ class _ResultScreenState extends State<ResultScreen> {
   late String userUid = ''; //current user uid
   late String userName = ''; //유저이름
 
+  bool _isloading = true; //로딩하고 있는지
+
   List<dynamic> matchNameList = []; //매칭된 사람들의 이름
   List<dynamic> matchIntroList = []; //매칭된 사람들의 한줄소개
   List<dynamic> matchImage = []; //매칭된 사람들의 image url
@@ -52,10 +54,16 @@ class _ResultScreenState extends State<ResultScreen> {
   }
 
   Future<void> loadMatchInfo() async {
+    setState(() {
+      _isloading = true;
+    });
     for (int i = 0; i < matchId.length; i++) {
       var id = matchId[i];
       await _getMatchData(id);
     }
+    setState(() {
+      _isloading = false;
+    });
   }
 
   //매칭된 사람들 데이터 가져와주기
@@ -77,7 +85,7 @@ class _ResultScreenState extends State<ResultScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print('data: ${widget.data}');
+    print('result_screen data: ${widget.data}');
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -129,63 +137,69 @@ class _ResultScreenState extends State<ResultScreen> {
           const SizedBox(
             height: 80,
           ),
-          Expanded(
-            child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemBuilder: (context, index) {
-                  return Column(
-                    //mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(50),
-                          color: const Color.fromRGBO(53, 231, 189, 1),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 30),
-                        width: MediaQuery.of(context).size.width * 0.7,
-                        height: MediaQuery.of(context).size.height * 0.4,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+          _isloading
+              ? const Center(
+                  child: CircularProgressIndicator(),
+                )
+              : Expanded(
+                  child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemBuilder: (context, index) {
+                        return Column(
+                          //mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(
-                              matchNameList[index],
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w400,
-                                fontSize: 30,
-                                color: Colors.white,
+                            Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(50),
+                                color: const Color.fromRGBO(53, 231, 189, 1),
                               ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(
-                              height: 15,
-                            ),
-                            CircleAvatar(
-                              backgroundImage: NetworkImage(matchImage[index]),
-                              radius: 65,
-                            ),
-                            const SizedBox(
-                              height: 30,
-                            ),
-                            Text(
-                              //user.selfIntro,
-                              matchIntroList[index],
-                              style: const TextStyle(
-                                fontSize: 20,
-                                color: Colors.white,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 30),
+                              width: MediaQuery.of(context).size.width * 0.7,
+                              height: MediaQuery.of(context).size.height * 0.4,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    matchNameList[index],
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w400,
+                                      fontSize: 30,
+                                      color: Colors.white,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(
+                                    height: 15,
+                                  ),
+                                  CircleAvatar(
+                                    backgroundImage:
+                                        NetworkImage(matchImage[index]),
+                                    radius: 65,
+                                  ),
+                                  const SizedBox(
+                                    height: 30,
+                                  ),
+                                  Text(
+                                    //user.selfIntro,
+                                    matchIntroList[index],
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      color: Colors.white,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
                               ),
-                              textAlign: TextAlign.center,
                             ),
                           ],
-                        ),
-                      ),
-                    ],
-                  );
-                },
-                separatorBuilder: (context, index) => const SizedBox(
-                      width: 40,
-                    ),
-                itemCount: 3),
-          ),
+                        );
+                      },
+                      separatorBuilder: (context, index) => const SizedBox(
+                            width: 40,
+                          ),
+                      itemCount: 3),
+                ),
         ],
       ),
     );

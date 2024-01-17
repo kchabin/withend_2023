@@ -36,7 +36,7 @@ class _NewMessageState extends State<NewMessage> {
         .doc(user.uid)
         .get();
     //파이어스토어에 http 요청 -> users 컬렉션, user.uid 문서에 저장된 데이터를 검색하게 됨.
-    
+
     FirebaseFirestore.instance.collection('${widget.data}').add(
       {
         'text': enteredMessage,
